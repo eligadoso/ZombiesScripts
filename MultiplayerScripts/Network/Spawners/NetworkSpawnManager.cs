@@ -7,9 +7,9 @@ public class NetworkSpawnManager : MonoBehaviour
 {
     public List<Transform> spawnPoints;
     private int lastUsedIndex = -1;
+
     private void Start()
     {
-
         if (spawnPoints == null || spawnPoints.Count == 0)
         {
             Debug.LogError("No hay puntos de spawn asignados.");
@@ -36,35 +36,32 @@ public class NetworkSpawnManager : MonoBehaviour
         if (NetworkManager.Singleton.IsServer)
         {
             StartCoroutine(AssignSpawnAfterDelay(clientId));
-            Debug.Log("Jugador conectado. Total jugadores: " + NetworkManager.Singleton.ConnectedClientsList.Count);
+            Debug.Log($"Jugador {clientId} conectado.");
         }
     }
 
-    private System.Collections.IEnumerator AssignSpawnAfterDelay(ulong clientId)
+    private IEnumerator AssignSpawnAfterDelay(ulong clientId)
     {
-        yield return new WaitForSeconds(0.1f); // espera por seguridad
+        yield return new WaitForSeconds(0.1f); // Espera para asegurarse de que el objeto esté en escena
 
         if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client))
         {
+            if (client.PlayerObject == null)
+            {
+                Debug.LogWarning($"El jugador {clientId} aún no tiene PlayerObject.");
+                yield break;
+            }
+
             GameObject playerObj = client.PlayerObject.gameObject;
 
-            // Asigna posición solo en el servidor
-            Vector3 spawnPos = GetValidSpawnPoint();
-            playerObj.transform.position = spawnPos;
+            // Elegir punto de spawn de forma cíclica
+            lastUsedIndex = (lastUsedIndex + 1) % spawnPoints.Count;
+            Transform spawnPoint = spawnPoints[lastUsedIndex];
 
-            Debug.Log($"Asignado spawn a jugador {clientId} en {spawnPos}");
+            playerObj.transform.position = spawnPoint.position;
+            playerObj.transform.rotation = spawnPoint.rotation;
+
+            Debug.Log($"Jugador {clientId} ubicado en punto {lastUsedIndex}");
         }
-
-    }
-    Vector3 GetValidSpawnPoint()
-    {
-        if (spawnPoints == null || spawnPoints.Count == 0)
-        {
-            Debug.LogWarning("No hay puntos de spawn definidos.");
-            return Vector3.zero; // fallback
-        }
-
-        lastUsedIndex = (lastUsedIndex + 1) % spawnPoints.Count;
-        return spawnPoints[lastUsedIndex].position;
     }
 }
